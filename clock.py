@@ -14,4 +14,7 @@ class Clock:
         self.error += adjustment
 
     def get_date(self):
-        return time.ctime((self.current_time() + self.error)/1000)
+        return time.ctime((self.get_clock())/1000)
+
+    def get_difference(self, time):
+        return self.get_clock() - time
