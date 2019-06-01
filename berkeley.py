@@ -6,7 +6,7 @@ import struct
 
 from clock import Clock
 
-#TODO: testar o cálculo da diferença
+#TODO: Limitar a um Manager
 #TODO: receber a diferença no manager
 # do it better
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -33,9 +33,13 @@ class Worker(Berkeley):
     def waiting_for_manager(self):
         while True:
             _data, _ = self.udp.recv()
-            data = struct.unpack('d', _data)[0]
+            print(struct.calcsize(_data.decode()))
+            symbol, data = struct.unpack("cd", _data)
             logging.info(data)
-            self.send_difference(data)
+            if symbol== b"@":
+                print("pass")
+            else:
+                self.send_difference(data)
 
     def send_difference(self, data):
         difference = self.clock.get_difference(data)
@@ -48,22 +52,24 @@ class Manager(Berkeley):
     def __init__(self, udp):
         Berkeley.__init__(self, udp)
         self.udp.bind()
-        self.workers = []
+        self.workers = {}
         self._t = threading.Thread(target=self.receive_workers)
         self._t.start()
         self.loop()
 
     def loop(self):
         while True:
-            time.sleep(RETRANSMISSION_INTERVAL)
             logging.debug('broadcasting...')
             self.broadcast_clock()
+            time.sleep(RETRANSMISSION_INTERVAL)
+            self.update_clocks()
 
     def broadcast_clock(self):
-        for worker in self.workers:
+        """ Send manager's clock to another workers """
+        for address, _ in self.workers.items():
             logging.debug(self.clock.get_clock())
             _data = bytearray(struct.pack("d", self.clock.get_clock()))
-            self.udp.send(_data, dest=worker)
+            self.udp.send(_data, dest=address)
 
     def receive_workers(self):
         """
@@ -75,11 +81,29 @@ class Manager(Berkeley):
             if _data == b'#':
                 logging.info("new worker!")
                 logging.info(address)
-                self.workers.append(address)
+                self.workers[address] = 0
+            else:
+                data = struct.unpack('d', _data)[0]
+                self.workers[address] = data  # refresh difference
         logging.debug('leave receive_workers')
 
-    def calc_average(self):
-        pass
+    def update_clocks(self):
+        average = self.average_calc()
+        # self.clock.set_adjustment(average)
+        for address, difference in self.workers.items():
+            adjustment = (difference * -1) + average  # difference * -1  + average
+            _adjustment = bytearray(struct.pack('cd', b'@', adjustment))
+            self.udp.send(_adjustment, dest=address)
+            self.workers[address] = 0
+
+    def average_calc(self):
+        average = 0.0
+        for _, difference in self.workers.items():
+            average += difference
+        try:
+            return average / len(self.workers) + 1
+        except ZeroDivisionError:
+            return 0.0
 
     def __del__(self):
         self._t.join()
