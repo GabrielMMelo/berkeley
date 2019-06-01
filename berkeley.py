@@ -7,7 +7,6 @@ import struct
 from clock import Clock
 
 #TODO: Limitar a um Manager
-#TODO: receber a diferença no manager
 # do it better
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
@@ -32,12 +31,16 @@ class Worker(Berkeley):
 
     def waiting_for_manager(self):
         while True:
+            print("TIME:", self.clock.get_clock())
+            print("DATE:", self.clock.get_date())
             _data, _ = self.udp.recv()
-            print(struct.calcsize(_data.decode()))
-            symbol, data = struct.unpack("cd", _data)
-            logging.info(data)
-            if symbol== b"@":
-                print("pass")
+            try:
+                data = struct.unpack('d', _data)[0]
+            except (struct.error, ValueError):
+                symbol, data = struct.unpack('cd', _data)
+            if symbol== b'@':
+                self.clock.set_adjustment(data)
+                symbol = ''
             else:
                 self.send_difference(data)
 
@@ -45,6 +48,7 @@ class Worker(Berkeley):
         difference = self.clock.get_difference(data)
         _difference = bytearray(struct.pack("d", difference))
         self.udp.send(_difference)
+        logging.info("Difference")
         logging.info(difference)
 
 
@@ -59,6 +63,8 @@ class Manager(Berkeley):
 
     def loop(self):
         while True:
+            print("TIME:", self.clock.get_clock())
+            print("DATE:", self.clock.get_date())
             logging.debug('broadcasting...')
             self.broadcast_clock()
             time.sleep(RETRANSMISSION_INTERVAL)
@@ -67,7 +73,6 @@ class Manager(Berkeley):
     def broadcast_clock(self):
         """ Send manager's clock to another workers """
         for address, _ in self.workers.items():
-            logging.debug(self.clock.get_clock())
             _data = bytearray(struct.pack("d", self.clock.get_clock()))
             self.udp.send(_data, dest=address)
 
@@ -76,10 +81,11 @@ class Manager(Berkeley):
         Parallel method that receives WORKERS_LIMIT number of workers
         and save them addresses
         """
-        while len(self.workers) < WORKERS_LIMIT:
+        #TODO: Pensar melhor o limite daqui
+        while len(self.workers) <= WORKERS_LIMIT:
             _data, address = self.udp.recv()
             if _data == b'#':
-                logging.info("new worker!")
+                logging.info("New worker!")
                 logging.info(address)
                 self.workers[address] = 0
             else:
@@ -89,19 +95,22 @@ class Manager(Berkeley):
 
     def update_clocks(self):
         average = self.average_calc()
-        # self.clock.set_adjustment(average)
+        logging.info("Average")
+        logging.info(average)
+        self.clock.set_adjustment(average)  # update manager clock
         for address, difference in self.workers.items():
             adjustment = (difference * -1) + average  # difference * -1  + average
+            logging.info("Adjustment")
+            logging.info(adjustment)
             _adjustment = bytearray(struct.pack('cd', b'@', adjustment))
             self.udp.send(_adjustment, dest=address)
-            self.workers[address] = 0
 
     def average_calc(self):
         average = 0.0
         for _, difference in self.workers.items():
             average += difference
         try:
-            return average / len(self.workers) + 1
+            return average / (len(self.workers)+1)
         except ZeroDivisionError:
             return 0.0
 
