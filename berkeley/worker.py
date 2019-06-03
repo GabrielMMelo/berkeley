@@ -10,6 +10,7 @@ log.basicConfig(stream=sys.stdout, level=log.DEBUG)
 class Worker(BerkeleyBase):
     def __init__(self, udp):
         BerkeleyBase.__init__(self, udp)
+        self.differences = []
         self.hello_2_server()
         self.waiting_for_manager()
 
@@ -46,3 +47,14 @@ class Worker(BerkeleyBase):
         self.udp.send(_difference)
         log.info("Difference (ms)")
         log.info(difference)
+        self.differences.append(difference)
+
+    def mean_differences(self):
+        sum = 0.0
+        for difference in self.differences[1:]:  # ignore the first entry
+            sum += difference
+        return sum/len(self.differences)
+
+    def __del__(self):
+        log.info("Difference mean:")
+        log.info(self.mean_differences())
