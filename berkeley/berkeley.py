@@ -1,12 +1,14 @@
-from log import LogBase
+import logging as log
+import sys
 
-from clock import Clock
+from berkeley.clock import Clock
 
-#TODO: support for multiple managers
+log.basicConfig(stream=sys.stdout, level=log.DEBUG)
 
 
-class BerkeleyBase(LogBase):
+class BerkeleyBase:
     def __init__(self, udp):
-        LogBase.__init__(self)
         self.clock = Clock()
         self.udp = udp
+        log.info("Initial error (ms):")
+        log.info(self.clock.get_error())

@@ -1,7 +1,10 @@
-import logging
+import logging as log
 import struct
+import sys
 
 from .berkeley import BerkeleyBase
+
+log.basicConfig(stream=sys.stdout, level=log.DEBUG)
 
 
 class Worker(BerkeleyBase):
@@ -11,12 +14,18 @@ class Worker(BerkeleyBase):
         self.waiting_for_manager()
 
     def hello_2_server(self):
+        """
+        """
         self.udp.send(b'#')
 
     def waiting_for_manager(self):
+        """
+        """
         while True:
-            print("TIME:", self.clock.get_clock())
-            print("DATE:", self.clock.get_date())
+            # log.info("TIME:")
+            # log.info(self.clock.get_clock())
+            # log.info("DATE:")
+            # log.info(self.clock.get_date())
             _data, _ = self.udp.recv()
             try:
                 data = struct.unpack('d', _data)[0]
@@ -27,10 +36,13 @@ class Worker(BerkeleyBase):
                 symbol = ''  # clean symbol
             else:
                 self.send_difference(data)
+                log.debug('----------------------------')
 
     def send_difference(self, data):
+        """
+        """
         difference = self.clock.get_difference(data)
         _difference = bytearray(struct.pack("d", difference))
         self.udp.send(_difference)
-        logging.info("Difference")
-        logging.info(difference)
+        log.info("Difference (ms)")
+        log.info(difference)

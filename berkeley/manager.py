@@ -1,11 +1,14 @@
+import logging as log
+import struct
+import sys
 import time
 import threading
-import struct
 
 from .berkeley import BerkeleyBase
 
 WORKERS_LIMIT = 2
-RETRANSMISSION_INTERVAL = 5
+RETRANSMISSION_INTERVAL = 10
+log.basicConfig(stream=sys.stdout, level=log.DEBUG)
 
 
 class Manager(BerkeleyBase):
@@ -18,10 +21,15 @@ class Manager(BerkeleyBase):
         self.loop()
 
     def loop(self):
+        """
+        """
         while True:
-            print("TIME:", self.clock.get_clock())
-            print("DATE:", self.clock.get_date())
-            self.logger.debug('broadcasting...')
+            # log.info("TIME:")
+            # log.info(self.clock.get_clock())
+            # log.info("DATE:")
+            # log.info(self.clock.get_date())
+            log.debug('----------------------')
+            log.debug('broadcasting...')
             self.broadcast_clock()
             time.sleep(RETRANSMISSION_INTERVAL)
             self.update_clocks()
@@ -41,27 +49,33 @@ class Manager(BerkeleyBase):
         while len(self.workers) <= WORKERS_LIMIT:
             _data, address = self.udp.recv()
             if _data == b'#':
-                self.logger.info("New worker!")
-                self.logger.info(address)
+                log.debug('********')
+                log.info("New worker!")
+                log.info(address)
+                log.debug('********')
                 self.workers[address] = 0
             else:
                 data = struct.unpack('d', _data)[0]
                 self.workers[address] = data  # refresh difference
-        self.logger.debug('leave receive_workers')
+        log.debug('leave receive_workers')
 
     def update_clocks(self):
+        """
+        """
         average = self.average_calc()
-        self.logger.info("Average")
-        self.logger.info(average)
+        log.info("Average")
+        log.info(average)
         self.clock.set_adjustment(average)  # update manager clock
         for address, difference in self.workers.items():
             adjustment = (difference * -1) + average  # difference * -1  + average
-            self.logger.info("Adjustment")
-            self.logger.info(adjustment)
+            log.info("Adjustment")
+            log.info(adjustment)
             _adjustment = bytearray(struct.pack('cd', b'@', adjustment))
             self.udp.send(_adjustment, dest=address)
 
     def average_calc(self):
+        """
+        """
         average = 0.0
         for _, difference in self.workers.items():
             average += difference
@@ -72,4 +86,4 @@ class Manager(BerkeleyBase):
 
     def __del__(self):
         self._t.join()
-        self.logger.debug('exiting')
+        log.debug('exiting')
