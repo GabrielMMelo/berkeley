@@ -7,6 +7,9 @@ class Clock:
         self.error = random.randint(0, 30) * 1000
         self.current_time = lambda: time.time() * 1000.0
 
+    def get_error(self):
+        return self.error
+
     def get_clock(self):
         return self.current_time() + self.error
 

@@ -1,6 +1,7 @@
 import sys
 
-from berkeley import Manager, Worker
+from berkeley.manager import Manager
+from berkeley.worker import Worker
 from udp import Udp
 
 host = sys.argv[1]
