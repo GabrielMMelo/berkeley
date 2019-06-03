@@ -2,7 +2,7 @@ import sys
 
 from berkeley.manager import Manager
 from berkeley.worker import Worker
-from udp import Udp
+from udp.udp import Udp
 
 host = sys.argv[1]
 port = int(sys.argv[2])

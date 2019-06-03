@@ -13,7 +13,7 @@ class Udp:
             self.sock.sendto(data, self.dest)
 
     def recv(self):
-        data, address = self.sock.recvfrom(4096*2)
+        data, address = self.sock.recvfrom(4096)
         return data, address
 
     def bind(self):
